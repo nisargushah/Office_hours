@@ -238,7 +238,7 @@ static void classa_leave()
     
   students_in_office -= 1;
   classa_inoffice -= 1;
-    sem_post(*sem);
+    sem_post(&sem);
     
     pthread_mutex_unlock(&lock);
 
@@ -258,7 +258,7 @@ static void classb_leave()
 
   students_in_office -= 1;
   classb_inoffice -= 1;
-    sem_post(*sem);
+    sem_post(&sem);
     
     pthread_mutex_unlock(&lock);
 
