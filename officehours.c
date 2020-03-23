@@ -1,3 +1,9 @@
+/*
+ 
+    Nisarg Shah
+ 
+ 
+ */
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -7,6 +13,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdbool.h>
 
 /*** Constants that define parameters of the simulation ***/
 
@@ -20,6 +27,7 @@
 #define CLASSD 3
 #define CLASSE 4
 
+ 
 
 /* TODO */
 /* Add your synchronization variables here */
@@ -37,7 +45,7 @@ static int classb_inoffice;      /* Total numbers of students from class B in th
 static int students_since_break = 0;
 
 
-//Sttic int to defione 
+//Sttic int to defione
 static int class_a_served = 0;
 static int class_b_served = 0;
 
@@ -53,6 +61,15 @@ typedef struct
  * TODO: Create/initialize all synchronization
  * variables and other global variables that you add.
  */
+
+
+// Mutex Lock declaration.
+pthread_mutex_t lock;
+
+//Semaphore declaration
+sem_t *sem ;
+
+
 static int initialize(student_info *si, char *filename)
 {
   students_in_office = 0;
@@ -63,7 +80,9 @@ static int initialize(student_info *si, char *filename)
   /* Initialize your synchronization variables (and
    * other variables you might use) here
    */
-
+    
+    // Initizalizing the semaphore we declared earlier
+    sem_init(sem, 0 ,MAX_SEATS);
 
   /* Read in the data file and initialize the student array */
   FILE *fp;
@@ -114,8 +133,16 @@ void *professorthread(void *junk)
     /* students are admitted without regard of the number         */
     /* of available seats, which class a student is in,           */
     /* and whether the professor needs a break. You need to add
-    /* all of this.                                               */
-
+    /* all of this.
+     */
+      
+      // Adding the Mutex lock and ublock here;
+      pthread_mutex_lock(&lock);
+      if(students_in_office == 0 && students_since_break == 10)
+      {
+          take_break();
+      }
+      pthread_mutex_unlock(&lock);
   }
   pthread_exit(NULL);
 }
@@ -132,10 +159,25 @@ void classa_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
-
-  students_in_office += 1;
-  students_since_break += 1;
-  classa_inoffice += 1;
+    
+    bool truth_value = true;
+    while(truth_value == true)
+    {
+        pthread_mutex_lock(&lock);
+       if( students_in_office < MAX_SEATS && class_a_served < 5 && students_since_break < 10 && ( classb_inoffice == 0 || class_b_served >=5 )  )
+       {
+           students_in_office += 1;
+           students_since_break += 1;
+           classa_inoffice += 1;
+           class_a_served += 1;
+           class_b_served = 0;
+           truth_value = false;
+       }
+        pthread_mutex_unlock(&lock);
+    
+    }
+    sem_wait(&sem);
+  
 
 }
 
@@ -152,9 +194,23 @@ void classb_enter()
   /*  YOUR CODE HERE.                                                     */
 
 
-  students_in_office += 1;
-  students_since_break += 1;
-  classb_inoffice += 1;
+  bool truth_value = true;
+  while(truth_value == true)
+  {
+      pthread_mutex_lock(&lock);
+     if( students_in_office < MAX_SEATS && class_b_served < 5 && students_since_break < 10 && ( classa_inoffice == 0 || class_a_served >=5 )  )
+     {
+         students_in_office += 1;
+         students_since_break += 1;
+         classb_inoffice += 1;
+         class_b_served += 1;
+         class_a_served = 0;
+         truth_value = false;
+     }
+      pthread_mutex_unlock(&lock);
+  
+  }
+  sem_wait(&sem);
 
 }
 
@@ -178,8 +234,13 @@ static void classa_leave()
    *  YOUR CODE HERE.
    */
 
+    pthread_mutex_lock(&lock);
+    
   students_in_office -= 1;
   classa_inoffice -= 1;
+    sem_post(*sem);
+    
+    pthread_mutex_unlock(&lock);
 
 }
 
@@ -193,9 +254,13 @@ static void classb_leave()
    * TODO
    * YOUR CODE HERE.
    */
+    pthread_mutex_lock(&lock);
 
   students_in_office -= 1;
   classb_inoffice -= 1;
+    sem_post(*sem);
+    
+    pthread_mutex_unlock(&lock);
 
 }
 
@@ -283,7 +348,9 @@ int main(int nargs, char **args)
   pthread_t professor_tid;
   pthread_t student_tid[MAX_STUDENTS];
   student_info s_info[MAX_STUDENTS];
-
+/*
+ baudsvbcod
+ */
   if (nargs != 2)
   {
     printf("Usage: officehour <name of inputfile>\n");
@@ -342,6 +409,9 @@ int main(int nargs, char **args)
 
   /* tell the professor to finish. */
   pthread_cancel(professor_tid);
+    
+    //destroyign the semaphore we created.s
+    sem_destroy(&sem);
 
   printf("Office hour simulation done.\n");
 
