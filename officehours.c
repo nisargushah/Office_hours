@@ -48,7 +48,8 @@ static int students_since_break = 0;
 //Sttic int to defione
 static int class_a_served = 0;
 static int class_b_served = 0;
-
+static int class_a_waiting = 0;
+static int class_b_waiting = 0;
 typedef struct
 {
   int arrival_time;  // time between the arrival of this student and the previous student
@@ -64,10 +65,11 @@ typedef struct
 
 
 // Mutex Lock declaration.
-pthread_mutex_t lock;
+pthread_mutex_t lock ;
+
 
 //Semaphore declaration
-sem_t *sem ;
+sem_t sem ;
 
 
 static int initialize(student_info *si, char *filename)
@@ -81,9 +83,7 @@ static int initialize(student_info *si, char *filename)
    * other variables you might use) here
    */
     
-    // Initizalizing the semaphore we declared earlier
-    sem_init(sem, 0 ,MAX_SEATS);
-
+    
   /* Read in the data file and initialize the student array */
   FILE *fp;
 
@@ -99,6 +99,7 @@ static int initialize(student_info *si, char *filename)
   {
     i++;
   }
+    sem_init(&sem , 0 , MAX_SEATS);
 
  fclose(fp);
  return i;
@@ -138,7 +139,7 @@ void *professorthread(void *junk)
       
       // Adding the Mutex lock and ublock here;
       pthread_mutex_lock(&lock);
-      if(students_in_office == 0 && students_since_break == 10)
+      if(students_in_office == 0 && students_since_break >= 10)
       {
           take_break();
       }
@@ -164,13 +165,15 @@ void classa_enter()
     while(truth_value == true)
     {
         pthread_mutex_lock(&lock);
-       if( students_in_office < MAX_SEATS && class_a_served < 5 && students_since_break < 10 && ( classb_inoffice == 0 || class_b_served >=5 )  )
+        class_a_waiting += 1;
+       if( students_in_office < MAX_SEATS && (class_a_served < 5 || class_b_waiting == 0) && students_since_break < 10 && classa_inoffice < 3 && classb_inoffice == 0)
        {
            students_in_office += 1;
            students_since_break += 1;
            classa_inoffice += 1;
            class_a_served += 1;
            class_b_served = 0;
+           class_a_waiting -= 1;
            truth_value = false;
        }
         pthread_mutex_unlock(&lock);
@@ -198,14 +201,17 @@ void classb_enter()
   while(truth_value == true)
   {
       pthread_mutex_lock(&lock);
-     if( students_in_office < MAX_SEATS && class_b_served < 5 && students_since_break < 10 && ( classa_inoffice == 0 || class_a_served >=5 )  )
+      class_b_waiting += 1;
+     if( students_in_office < MAX_SEATS && ( class_b_served < 5 || class_a_waiting == 0 ) && students_since_break < 10 &&  classa_inoffice == 0)
      {
          students_in_office += 1;
          students_since_break += 1;
          classb_inoffice += 1;
          class_b_served += 1;
          class_a_served = 0;
+         
          truth_value = false;
+          class_b_waiting -= 1;
      }
       pthread_mutex_unlock(&lock);
   
@@ -238,9 +244,11 @@ static void classa_leave()
     
   students_in_office -= 1;
   classa_inoffice -= 1;
-    sem_post(&sem);
+//
+    
     
     pthread_mutex_unlock(&lock);
+        sem_post(&sem);
 
 }
 
@@ -258,10 +266,11 @@ static void classb_leave()
 
   students_in_office -= 1;
   classb_inoffice -= 1;
-    sem_post(&sem);
+//
+   
     
     pthread_mutex_unlock(&lock);
-
+    sem_post(&sem);
 }
 
 /* Main code for class A student threads.
@@ -288,9 +297,12 @@ void* classa_student(void *si)
   printf("Student %d from class A finishes asking questions and prepares to leave\n", s_info->student_id);
 
   /* leave office */
+    
   classa_leave();
 
   printf("Student %d from class A leaves the office\n", s_info->student_id);
+  
+
 
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
@@ -410,7 +422,7 @@ int main(int nargs, char **args)
   /* tell the professor to finish. */
   pthread_cancel(professor_tid);
     
-    //destroyign the semaphore we created.s
+//    destroyign the semaphore we created.s
     sem_destroy(&sem);
 
   printf("Office hour simulation done.\n");
