@@ -1,7 +1,7 @@
 /*
  
     Nisarg Shah
- 
+    1001553132\\\\\\
  
  */
 
@@ -50,6 +50,10 @@ static int class_a_served = 0;
 static int class_b_served = 0;
 static int class_a_waiting = 0;
 static int class_b_waiting = 0;
+
+static int total_a =0;
+static int total_b =0;
+
 typedef struct
 {
   int arrival_time;  // time between the arrival of this student and the previous student
@@ -65,8 +69,7 @@ typedef struct
 
 
 // Mutex Lock declaration.
-pthread_mutex_t lock ;
-
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 //Semaphore declaration
 sem_t sem ;
@@ -99,7 +102,7 @@ static int initialize(student_info *si, char *filename)
   {
     i++;
   }
-    sem_init(&sem , 0 , MAX_SEATS);
+    sem_init(&sem , 0 , students_in_office);
 
  fclose(fp);
  return i;
@@ -166,7 +169,7 @@ void classa_enter()
     {
         pthread_mutex_lock(&lock);
         class_a_waiting += 1;
-       if( students_in_office < MAX_SEATS && (class_a_served < 5 || class_b_waiting == 0) && students_since_break < 10 && classa_inoffice < 3 && classb_inoffice == 0)
+       if( students_in_office < MAX_SEATS && (class_a_served < 5 || class_b_waiting == 0) && students_since_break < 10  && classb_inoffice == 0)
        {
            students_in_office += 1;
            students_since_break += 1;
@@ -198,11 +201,11 @@ void classb_enter()
 
 
   bool truth_value = true;
-  while(truth_value == true)
+  while( truth_value == true)
   {
       pthread_mutex_lock(&lock);
       class_b_waiting += 1;
-     if( students_in_office < MAX_SEATS && ( class_b_served < 5 || class_a_waiting == 0 ) && students_since_break < 10 &&  classa_inoffice == 0)
+     if( students_in_office < MAX_SEATS && ( class_b_served < 5 || class_a_waiting == 0 ) && students_since_break < 10  && classa_inoffice ==  0)
      {
          students_in_office += 1;
          students_since_break += 1;
@@ -245,7 +248,7 @@ static void classa_leave()
   students_in_office -= 1;
   classa_inoffice -= 1;
 //
-    
+    total_a++;
     
     pthread_mutex_unlock(&lock);
         sem_post(&sem);
@@ -268,7 +271,7 @@ static void classb_leave()
   classb_inoffice -= 1;
 //
    
-    
+    total_b++;
     pthread_mutex_unlock(&lock);
     sem_post(&sem);
 }
@@ -426,32 +429,10 @@ int main(int nargs, char **args)
     sem_destroy(&sem);
 
   printf("Office hour simulation done.\n");
+    
+    printf(" \n\nTotal  A students %d and \n total B students %d", total_a,total_b);
 
   return 0;
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
- 
- We know that we need to add 3 student threads
- NO students from different class allowed
- Only 10 students in one go. Everyone else in waitlist
- Change classes if 5 consecutive students from same class
- 
- 
- 
-*/
