@@ -1,7 +1,7 @@
 /*
  
     Nisarg Shah
-    1001553132\\\\\\
+ 
  
  */
 
@@ -436,27 +436,3 @@ int main(int nargs, char **args)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
- 
- We know that we need to add 3 student threads
- NO students from different class allowed
- Only 10 students in one go. Everyone else in waitlist
- Change classes if 5 consecutive students from same class
- 
- 
- 
-*/
